@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>无猜扫雷 - Logic Minesweeper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f172a;
+    --bg2: #1e293b;
+    --surface: #334155;
+    --surface2: #475569;
+    --text: #f1f5f9;
+    --text2: #94a3b8;
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --border: #475569;
+    --cell-size: 40px;  /* 默认值，JS 会动态覆盖 */
+    --radius: 8px;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    user-select: none;
+  }
+
+  .container {
+    max-width: 1200px;
+    width: 100%;
+  }
+
+  /* 标题 */
+  .header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .header h1 {
+    font-size: 28px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 4px;
+  }
+
+  .header .subtitle {
+    color: var(--text2);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .header .subtitle span {
+    color: var(--success);
+    -webkit-text-fill-color: var(--success);
+  }
+
+  .header .version-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text2);
+    background: var(--surface);
+    border-radius: 4px;
+    padding: 1px 8px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  /* 控制栏 */
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .controls-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .controls-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .difficulty-select {
+    background: var(--bg2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .difficulty-select:hover, .difficulty-select:focus {
+    border-color: var(--primary);
+  }
+
+  .btn {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .btn:hover {
+    background: var(--surface2);
+    border-color: var(--text2);
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+  }
+
+  .btn-success {
+    background: var(--success);
+    border-color: var(--success);
+    color: white;
+  }
+
+  .btn-success:hover {
+    background: #16a34a;
+    border-color: #16a34a;
+  }
+
+  .btn-danger {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* 状态信息 */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg2);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .status-item .label {
+    color: var(--text2);
+    font-weight: 500;
+  }
+
+  .status-item .value {
+    font-weight: 700;
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .status-item .value.mine-count {
+    color: var(--danger);
+  }
+
+  .status-item .value.flag-count {
+    color: var(--warning);
+  }
+
+  .status-item .value.time {
+    color: var(--primary);
+    min-width: 4ch;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* 无猜保障指示器 - 醒目版 */
+  .status-item .value.solvable-indicator {
+    font-size: 22px;
+    font-weight: 800;
+    padding: 2px 10px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+  }
+  .status-item .value.solvable-indicator.guaranteed {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--success);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+  .status-item .value.solvable-indicator.not-guaranteed {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  /* 游戏板 */
+  .board-wrapper {
+    background: var(--bg2);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .board {
+    display: inline-grid;
+    gap: 2px;
+  }
+
+  .cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.1s, transform 0.1s;
+    position: relative;
+  }
+
+  .cell-hidden {
+    background: var(--surface);
+    border: 1px solid transparent;
+  }
+
+  .cell-hidden:hover {
+    background: var(--surface2);
+    transform: scale(1.05);
+    z-index: 1;
+  }
+
+  .cell-revealed {
+    background: #1a2744;
+    cursor: default;
+  }
+
+  .cell-revealed:hover {
+    transform: none;
+  }
+
+  .cell-flagged {
+    background: var(--surface);
+  }
+
+  .cell-flagged::after {
+    content: '🚩';
+    font-size: 18px;
+  }
+
+  .cell-mine {
+    background: var(--danger) !important;
+  }
+
+  .cell-mine::after {
+    content: '💣';
+    font-size: 18px;
+  }
+
+  .cell-mine-wrong {
+    background: var(--warning) !important;
+  }
+
+  .cell-mine-wrong::after {
+    content: '❌';
+    font-size: 16px;
+  }
+
+  /* 数字颜色 */
+  .cell-n1 { color: #60a5fa; }   /* 蓝色 */
+  .cell-n2 { color: #34d399; }   /* 绿色 */
+  .cell-n3 { color: #f87171; }   /* 红色 */
+  .cell-n4 { color: #818cf8; }   /* 紫色 */
+  .cell-n5 { color: #fbbf24; }   /* 深红 */
+  .cell-n6 { color: #2dd4bf; }   /* 青色 */
+  .cell-n7 { color: #1e293b; }   /* 深灰 */
+  .cell-n8 { color: #94a3b8; }   /* 灰 */
+
+  /* 逻辑提示高亮 */
+  .cell-hint-safe {
+    box-shadow: inset 0 0 0 3px var(--success);
+    animation: pulse-green 1.5s infinite;
+  }
+
+  .cell-hint-mine {
+    box-shadow: inset 0 0 0 3px var(--danger);
+    animation: pulse-red 1.5s infinite;
+  }
+
+  @keyframes pulse-green {
+    0%, 100% { box-shadow: inset 0 0 0 3px rgba(34, 197, 94, 0.8); }
+    50% { box-shadow: inset 0 0 0 3px rgba(34, 197, 94, 0.3); }
+  }
+
+  @keyframes pulse-red {
+    0%, 100% { box-shadow: inset 0 0 0 3px rgba(239, 68, 68, 0.8); }
+    50% { box-shadow: inset 0 0 0 3px rgba(239, 68, 68, 0.3); }
+  }
+
+  /* 消息弹窗 */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--bg2);
+    border-radius: 16px;
+    padding: 32px 40px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    transform: scale(0.9);
+    transition: transform 0.3s;
+  }
+
+  .modal-overlay.active .modal {
+    transform: scale(1);
+  }
+
+  .modal .emoji {
+    font-size: 64px;
+    margin-bottom: 12px;
+  }
+
+  .modal h2 {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .modal p {
+    color: var(--text2);
+    font-size: 15px;
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  .modal .btn {
+    display: inline-flex;
+    margin: 0 auto;
+  }
+
+  /* 逻辑推理推理面板 */
+  .reasoning-panel {
+    background: var(--bg2);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-top: 12px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    min-height: 0;
+    transition: all 0.3s;
+  }
+
+  .reasoning-panel.hidden {
+    border-color: transparent;
+    padding: 0 16px;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .reasoning-panel .title {
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .reasoning-panel .step {
+    color: var(--text2);
+    padding: 3px 0;
+    padding-left: 20px;
+    line-height: 1.5;
+  }
+
+  .reasoning-panel .step strong {
+    color: var(--text);
+  }
+
+  /* 操作说明 */
+  .instructions {
+    margin-top: 16px;
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--text2);
+    flex-wrap: wrap;
+  }
+
+  .instructions kbd {
+    background: var(--surface);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: inherit;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  /* 响应式 */
+  @media (max-width: 600px) {
+    :root { --cell-size: 32px; }
+    .header h1 { font-size: 22px; }
+    .controls { flex-direction: column; align-items: stretch; }
+    .controls-left, .controls-right { justify-content: center; }
+    .modal { padding: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- 标题 -->
+  <div class="header">
+    <h1>💣 无猜扫雷 <span class="version-tag" id="versionTag">v?.?.?</span></h1>
+    <div class="subtitle">每步皆可<span>逻辑推理</span> · 永不靠猜</div>
+  </div>
+
+  <!-- 控制栏 -->
+  <div class="controls">
+    <div class="controls-left">
+      <select class="difficulty-select" id="difficulty">
+        <option value="easy">😊 简单 9×9 (10雷)</option>
+        <option value="medium" selected>🤔 中等 16×16 (40雷)</option>
+        <option value="hard">😈 困难 30×16 (99雷)</option>
+        <option value="expert">🧠 专家 30×20 (130雷)</option>
+      </select>
+    </div>
+    <div class="controls-right">
+      <button class="btn btn-primary" id="newGame">🔄 新游戏</button>
+      <button class="btn" id="hintBtn" disabled>💡 提示</button>
+    </div>
+  </div>
+
+  <!-- 状态栏 -->
+  <div class="status-bar">
+    <div class="status-item">
+      <span class="label">💣 雷数</span>
+      <span class="value mine-count" id="mineCount">0</span>
+    </div>
+    <div class="status-item">
+      <span class="label">🚩 已标</span>
+      <span class="value flag-count" id="flagCount">0</span>
+    </div>
+    <div class="status-item">
+      <span class="label">⏱️ 时间</span>
+      <span class="value time" id="timer">0:00</span>
+    </div>
+    <div class="status-item">
+      <span class="label">🛡️ 无猜保障</span>
+      <span class="value solvable-indicator" id="solvableIndicator">✓ 已保障</span>
+    </div>
+  </div>
+
+  <!-- 游戏板 -->
+  <div class="board-wrapper">
+    <div class="board" id="board"></div>
+  </div>
+
+  <!-- 推理面板 -->
+  <div class="reasoning-panel hidden" id="reasoningPanel">
+    <div class="title">🧠 逻辑推理过程</div>
+    <div id="reasoningSteps"></div>
+  </div>
+
+  <!-- 操作说明 -->
+  <div class="instructions">
+    <span><kbd>左键</kbd> 揭开格子</span>
+    <span><kbd>右键</kbd> 标记/取消地雷</span>
+    <span><kbd>双击</kbd> 快速展开(Chord)</span>
+    <span><kbd>💡</kbd> 显示推理提示</span>
+  </div>
+
+  <!-- 弹窗 -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="emoji" id="modalEmoji">💥</div>
+      <h2 id="modalTitle">游戏结束</h2>
+      <p id="modalMessage">你踩到了地雷！</p>
+      <button class="btn btn-primary" id="modalBtn">再来一局</button>
+    </div>
+  </div>
+</div>
+
+<script src="game.js?v=2.2.0"></script>
+<script>
+// ============================================================
+// UI 控制器
+// ============================================================
+
+const DIFFICULTIES = {
+  easy:   { rows: 9,  cols: 9,  mines: 10 },
+  medium: { rows: 16, cols: 16, mines: 40 },
+  hard:   { rows: 16, cols: 30, mines: 99 },
+  expert: { rows: 20, cols: 30, mines: 130 },
+};
+
+class GameUI {
+  constructor() {
+    this.board = null;
+    this.timerInterval = null;
+    this.seconds = 0;
+    this.hintMode = false;
+    this.hintResult = { safe: [], mines: [] };
+    this.gameStarted = false;
+
+    this.boardEl = document.getElementById('board');
+    this.mineCountEl = document.getElementById('mineCount');
+    this.flagCountEl = document.getElementById('flagCount');
+    this.timerEl = document.getElementById('timer');
+    this.solvableEl = document.getElementById('solvableIndicator');
+    this.reasoningPanel = document.getElementById('reasoningPanel');
+    this.reasoningSteps = document.getElementById('reasoningSteps');
+    this.hintBtn = document.getElementById('hintBtn');
+    this.modalOverlay = document.getElementById('modalOverlay');
+    this.modalEmoji = document.getElementById('modalEmoji');
+    this.modalTitle = document.getElementById('modalTitle');
+    this.modalMessage = document.getElementById('modalMessage');
+    this.modalBtn = document.getElementById('modalBtn');
+    this.versionTag = document.getElementById('versionTag');
+
+    // 显示引擎版本
+    const v = window.__MINESWEEPER_VERSION || '?';
+    this.versionTag.textContent = `v${v}`;
+    console.log(`[无猜扫雷] UI v1.0 / 引擎 v${v}`);
+
+    this.bindEvents();
+    this.startNewGame();
+  }
+
+  getDifficulty() {
+    const val = document.getElementById('difficulty').value;
+    return DIFFICULTIES[val] || DIFFICULTIES.medium;
+  }
+
+  startNewGame() {
+    this.stopTimer();
+    this.seconds = 0;
+    this.timerEl.textContent = '0:00';
+    this.gameStarted = false;
+    this.hintMode = false;
+    this.hintResult = { safe: [], mines: [] };
+    this.hintBtn.disabled = false;
+    this.reasoningPanel.classList.add('hidden');
+    this.modalOverlay.classList.remove('active');
+
+    const diff = this.getDifficulty();
+    this.board = new Board(diff.rows, diff.cols, diff.mines);
+    this.render();
+    this.updateStatus();
+    this.updateSolvableIndicator();
+  }
+
+  /** 根据棋盘尺寸和窗口可用空间，动态计算格子大小 */
+  _updateCellSize() {
+    if (!this.board) return;
+    const gap = 2;
+    // 可用宽度：窗口 95% 减去容器 padding
+    const availWidth = window.innerWidth * 0.95 - 40;
+    // 可用高度：窗口高度减去顶部 UI 区（标题+控制栏+状态栏+padding 等约 250px）
+    const availHeight = window.innerHeight - 260;
+    const maxWidth = Math.min(availWidth, 1400);
+
+    // 按列数计算每个格子最大尺寸（含 gap）
+    const sizeByCol = Math.floor((maxWidth - (this.board.cols - 1) * gap) / this.board.cols);
+    const sizeByRow = Math.floor((availHeight - (this.board.rows - 1) * gap) / this.board.rows);
+
+    let size = Math.min(sizeByCol, sizeByRow);
+    // 限制：最小 24px（可操作），最大 44px（避免太大）
+    size = Math.max(24, Math.min(44, size));
+
+    document.documentElement.style.setProperty('--cell-size', `${size}px`);
+  }
+
+  render() {
+    this._updateCellSize();
+    this.boardEl.innerHTML = '';
+    this.boardEl.style.gridTemplateColumns = `repeat(${this.board.cols}, var(--cell-size))`;
+
+    for (let r = 0; r < this.board.rows; r++) {
+      for (let c = 0; c < this.board.cols; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.r = r;
+        cell.dataset.c = c;
+        this.boardEl.appendChild(cell);
+      }
+    }
+
+    this.updateBoardDisplay();
+  }
+
+  updateBoardDisplay() {
+    const cells = this.boardEl.children;
+
+    for (let r = 0; r < this.board.rows; r++) {
+      for (let c = 0; c < this.board.cols; c++) {
+        const idx = r * this.board.cols + c;
+        const el = cells[idx];
+        const state = this.board.state[r][c];
+        const isMine = this.board.mineMap[r][c];
+        const num = this.board.numbers[r][c];
+
+        // 清除所有状态类
+        el.className = 'cell';
+        el.textContent = '';
+
+        if (state === CellState.HIDDEN) {
+          el.classList.add('cell-hidden');
+        } else if (state === CellState.REVEALED) {
+          el.classList.add('cell-revealed');
+          if (isMine) {
+            el.classList.add('cell-mine');
+          } else if (num > 0) {
+            el.textContent = num;
+            const colorClass = `cell-n${num}`;
+            el.classList.add(colorClass);
+          }
+        } else if (state === CellState.FLAGGED) {
+          el.classList.add('cell-flagged');
+        }
+
+        // 游戏结束显示所有雷
+        if (this.board.gameOver && isMine && state !== CellState.FLAGGED) {
+          el.classList.add('cell-mine');
+        }
+      }
+    }
+
+    // 高亮提示
+    if (this.hintMode) {
+      for (const [r, c] of this.hintResult.safe) {
+        const idx = r * this.board.cols + c;
+        this.boardEl.children[idx].classList.add('cell-hint-safe');
+      }
+      for (const [r, c] of this.hintResult.mines) {
+        const idx = r * this.board.cols + c;
+        this.boardEl.children[idx].classList.add('cell-hint-mine');
+      }
+    }
+
+    this.updateStatus();
+    this.updateSolvableIndicator();
+  }
+
+  updateStatus() {
+    if (!this.board) return;
+    this.mineCountEl.textContent = this.board.mines;
+
+    let flagCount = 0;
+    for (let r = 0; r < this.board.rows; r++) {
+      for (let c = 0; c < this.board.cols; c++) {
+        if (this.board.state[r][c] === CellState.FLAGGED) flagCount++;
+      }
+    }
+    this.flagCountEl.textContent = flagCount;
+  }
+
+  /** 更新无猜保障指示器 */
+  updateSolvableIndicator() {
+    if (!this.board) return;
+    const el = this.solvableEl;
+    if (this.board.guaranteedNoGuess) {
+      el.textContent = '✅ 已保障';
+      el.className = 'value solvable-indicator guaranteed';
+      el.title = '本局棋盘已通过完整无猜验证，所有步骤均可纯逻辑推理。';
+    } else {
+      el.textContent = '⚠️ 可能猜';
+      el.className = 'value solvable-indicator not-guaranteed';
+      el.title = '本局未通过完全无猜验证，部分步骤可能需要猜测（fallback 棋盘）。';
+    }
+  }
+
+  // ============================================================
+  // 交互事件
+  // ============================================================
+
+  bindEvents() {
+    // 棋盘事件委托
+    this.boardEl.addEventListener('mousedown', (e) => {
+      const cell = e.target.closest('.cell');
+      if (!cell) return;
+      const r = parseInt(cell.dataset.r);
+      const c = parseInt(cell.dataset.c);
+      if (this.board.gameOver || this.board.won) return;
+
+      if (e.button === 0) {
+        // 左键
+        this.handleLeftClick(r, c);
+      } else if (e.button === 2) {
+        // 右键
+        e.preventDefault();
+        this.handleRightClick(r, c);
+      }
+    });
+
+    // 阻止右键菜单
+    this.boardEl.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // 双击 chord
+    this.boardEl.addEventListener('dblclick', (e) => {
+      const cell = e.target.closest('.cell');
+      if (!cell) return;
+      const r = parseInt(cell.dataset.r);
+      const c = parseInt(cell.dataset.c);
+      this.handleChord(r, c);
+    });
+
+    // 新游戏
+    document.getElementById('newGame').addEventListener('click', () => this.startNewGame());
+    document.getElementById('difficulty').addEventListener('change', () => this.startNewGame());
+
+    // 提示按钮
+    this.hintBtn.addEventListener('click', () => this.showHint());
+
+    // 弹窗按钮
+    this.modalBtn.addEventListener('click', () => this.startNewGame());
+
+    // 键盘
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'h' || e.key === 'H') this.showHint();
+      if (e.key === 'n' || e.key === 'N') this.startNewGame();
+    });
+
+    // 窗口大小变化时自动调整格子大小
+    window.addEventListener('resize', () => {
+      if (this.board && this.boardEl.children.length > 0) {
+        this._updateCellSize();
+      }
+    });
+  }
+
+  handleLeftClick(r, c) {
+    if (this.hintMode) {
+      this.hintMode = false;
+      this.reasoningPanel.classList.add('hidden');
+    }
+
+    if (this.board.state[r][c] === CellState.FLAGGED) return;
+
+    // 如果是已揭开的数字且旗子数匹配，做 chord
+    if (this.board.state[r][c] === CellState.REVEALED && this.board.numbers[r][c] > 0) {
+      this.handleChord(r, c);
+      return;
+    }
+
+    if (!this.gameStarted) {
+      this.startTimer();
+      this.gameStarted = true;
+    }
+
+    this.board.reveal(r, c);
+    this.updateBoardDisplay();
+    this.checkGameEnd();
+  }
+
+  handleRightClick(r, c) {
+    if (this.board.state[r][c] === CellState.REVEALED) return;
+    this.board.toggleFlag(r, c);
+    this.updateBoardDisplay();
+  }
+
+  handleChord(r, c) {
+    if (this.board.state[r][c] !== CellState.REVEALED) return;
+    const num = this.board.numbers[r][c];
+    if (num <= 0) return;
+
+    // 统计周围旗子数
+    let flagCount = 0;
+    for (const [nr, nc] of this.board.getNeighbors(r, c)) {
+      if (this.board.state[nr][nc] === CellState.FLAGGED) flagCount++;
+    }
+
+    if (flagCount !== num) return;
+
+    if (!this.gameStarted) {
+      this.startTimer();
+      this.gameStarted = true;
+    }
+
+    // 揭开周围未标记的格子
+    for (const [nr, nc] of this.board.getNeighbors(r, c)) {
+      if (this.board.state[nr][nc] === CellState.HIDDEN) {
+        this.board.reveal(nr, nc);
+      }
+    }
+
+    this.updateBoardDisplay();
+    this.checkGameEnd();
+  }
+
+  // ============================================================
+  // 逻辑提示系统
+  // ============================================================
+
+  showHint() {
+    if (!this.board || this.board.gameOver || this.board.won) return;
+
+    // 使用深度推理（含试探回溯）
+    const result = LogicSolver.deepAnalyze(this.board);
+
+    if (result.safe.length === 0 && result.mines.length === 0) {
+      // 深度推理也无法确定
+      const detail = result.reasoning.filter(r => r.includes('试探回溯')).join('\n') || '无可用推理';
+      this.showReasoning(
+        `⚠️ 当前局面深度推理后仍无法确定任何格子。\n\n` +
+        `推理详情：\n${detail}\n\n` +
+        `这可能是一个确实需要猜测的棋盘。点击「新游戏」重开一局。`,
+        []
+      );
+      return;
+    }
+
+    this.hintMode = true;
+    this.hintResult = result;
+    this.updateBoardDisplay();
+
+    // 生成推理过程说明
+    const steps = [];
+    if (result.backtrackUsed) {
+      steps.push('🧠 使用了试探回溯推理（基础规则卡住后自动启用）');
+    }
+    if (result.safe.length > 0) {
+      const cells = result.safe.slice(0, 8).map(([r, c]) => `(${r},${c})`).join(', ');
+      steps.push(`可安全揭开 ${result.safe.length} 个格子：${cells}${result.safe.length > 8 ? '...' : ''}`);
+    }
+    if (result.mines.length > 0) {
+      const cells = result.mines.slice(0, 8).map(([r, c]) => `(${r},${c})`).join(', ');
+      steps.push(`可安全标雷 ${result.mines.length} 个格子：${cells}${result.mines.length > 8 ? '...' : ''}`);
+    }
+
+    // 推理步骤详情（最多5条）
+    const reasoningSteps = result.reasoning.slice(0, 5).map(r => `  • ${r}`).join('\n');
+
+    this.showReasoning(
+      (steps.length > 0 ? `${steps.join('\n')}\n\n` : '') +
+      (reasoningSteps ? `推理过程：\n${reasoningSteps}` : '没有详细的推理步骤。'),
+      result
+    );
+  }
+
+  showReasoning(text, result) {
+    this.reasoningPanel.classList.remove('hidden');
+    this.reasoningSteps.innerHTML = text.split('\n').map(line => {
+      if (line.startsWith('  • ')) {
+        return `<div class="step">${line.replace('  • ', '→ ')}</div>`;
+      }
+      return `<div class="step"><strong>${line}</strong></div>`;
+    }).join('');
+  }
+
+  /** 显示踩雷诊断 —— 告诉你为什么这次的"猜测"不可靠 */
+  showMineDiagnosis(r, c) {
+    this.reasoningPanel.classList.remove('hidden');
+
+    // 使用深度推理（含试探回溯）
+    const result = LogicSolver.deepAnalyze(this.board);
+    const totalHidden = this.board.totalCells - this.board.revealedCount() - this.board.flaggedCount();
+    const remainingMines = this.board.mines - this.board.flaggedCount();
+
+    const html = `
+      <div class="step"><strong>💥 踩雷诊断报告</strong></div>
+      <div class="step">你点击了位置 (${r}, ${c})，它是地雷。</div>
+      <div class="step">当前未揭开格子数：${totalHidden} 个（含 ${remainingMines} 颗地雷）</div>
+      ${result.safe.length > 0 
+        ? `<div class="step">✅ 实际上，有 ${result.safe.length} 个安全格可以通过逻辑确定！先点这些。</div>`
+        : ''}
+      ${result.mines.length > 0
+        ? `<div class="step">✅ 实际上，有 ${result.mines.length} 个地雷格可以通过逻辑确定！先标这些。</div>`
+        : ''}
+      ${result.safe.length === 0 && result.mines.length === 0
+        ? `<div class="step">⚠️ 当前没有任何逻辑推理可以确定的位置。</div>`
+        : ''}
+      <div class="step">💡 使用「提示」按钮查看所有可推理的位置。</div>
+    `;
+    this.reasoningSteps.innerHTML = html;
+  }
+
+  // ============================================================
+  // 游戏结束
+  // ============================================================
+
+  checkGameEnd() {
+    if (this.board.gameOver) {
+      this.stopTimer();
+      this.updateBoardDisplay();
+      this.hintBtn.disabled = true;
+      // 显示踩雷诊断
+      const hitPos = this.board.lastMineHit || [-1, -1];
+      this.showMineDiagnosis(hitPos[0], hitPos[1]);
+      this.showModal('💥', '游戏结束', '你踩到了地雷！\n试试使用「提示」按钮来辅助推理。');
+    } else if (this.board.won) {
+      this.stopTimer();
+      this.updateBoardDisplay();
+      this.hintBtn.disabled = true;
+      this.solvableEl.textContent = '🏆';
+      this.solvableEl.className = 'value solvable-indicator guaranteed';
+      this.showModal('🎉', '恭喜通关！', `你用时 ${this.seconds} 秒完成了本局游戏，全程没有靠猜测！`);
+    }
+  }
+
+  showModal(emoji, title, message) {
+    this.modalEmoji.textContent = emoji;
+    this.modalTitle.textContent = title;
+    this.modalMessage.textContent = message;
+    this.modalOverlay.classList.add('active');
+  }
+
+  // ============================================================
+  // 计时器
+  // ============================================================
+
+  startTimer() {
+    this.seconds = 0;
+    this.timerInterval = setInterval(() => {
+      this.seconds++;
+      this.timerEl.textContent = this._formatTime(this.seconds);
+    }, 1000);
+  }
+
+  _formatTime(totalSec) {
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  stopTimer() {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+  }
+}
+
+// ============================================================
+// 启动游戏
+// ============================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+  window.game = new GameUI();
+});
+</script>
+</body>
+</html>
